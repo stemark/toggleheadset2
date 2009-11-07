@@ -85,7 +85,7 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 		    // Create an Intent to launch toggle headset
 		    Intent toggleIntent = new Intent(this, ToggleHeadsetService.class);
 		    toggleIntent.setAction(ToggleHeadsetService.INTENT_TOGGLE_HEADSET);
-		    PendingIntent pendingIntent = PendingIntent.getService(this, 0, intent, 0);
+		    PendingIntent pendingIntent = PendingIntent.getService(this, 0, toggleIntent, 0);
 
 		    // Get the layout for the App Widget and attach an on-click listener to the icon
 		    RemoteViews views = new RemoteViews(this.getPackageName(), R.layout.toggle_apwidget);
@@ -121,6 +121,9 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 			}
 			// always update the icon
 			updateIcon();
+
+
+
 		}
 		
 		/**
