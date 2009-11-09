@@ -82,15 +82,6 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 			Log.d(TAG,"onStart");
 			Log.d(TAG, "Received " + intent.getAction() );
 			
-		    // Create an Intent to launch toggle headset
-		    Intent toggleIntent = new Intent(this, ToggleHeadsetService.class);
-		    toggleIntent.setAction(ToggleHeadsetService.INTENT_TOGGLE_HEADSET);
-		    PendingIntent pendingIntent = PendingIntent.getService(this, 0, toggleIntent, 0);
-
-		    // Get the layout for the App Widget and attach an on-click listener to the icon
-		    RemoteViews views = new RemoteViews(this.getPackageName(), R.layout.toggle_apwidget);
-		    views.setOnClickPendingIntent(R.id.Icon, pendingIntent);
-
 			if(headsetReceiver == null )
 			{
 				/** Since HEADSET_PLUG uses FLAG_RECIEVER_REGISTERED_ONLY we need to register and
@@ -189,6 +180,14 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 	            view.setImageViewResource(R.id.Icon, R.drawable.noheadsetroute);
 	        }
 	        
+		    // Create an Intent to launch toggle headset
+		    Intent toggleIntent = new Intent(this, ToggleHeadsetService.class);
+		    toggleIntent.setAction(ToggleHeadsetService.INTENT_TOGGLE_HEADSET);
+		    PendingIntent pendingIntent = PendingIntent.getService(this, 0, toggleIntent, 0);
+
+		    // Get the layout for the App Widget and attach an on-click listener to the icon
+		    view.setOnClickPendingIntent(R.id.Icon, pendingIntent);
+		    
 	        // Push update for this widget to the home screen
 	        ComponentName thisWidget = new ComponentName(this, ToggleHeadsetAppWidgetProvider.class);
 	        AppWidgetManager manager = AppWidgetManager.getInstance(this);
