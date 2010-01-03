@@ -33,15 +33,18 @@ import android.util.Log;
 public class ToggleHeadsetBroadcastReceiver extends BroadcastReceiver{
 	private static final String TAG = ToggleHeadsetBroadcastReceiver.class.getName();
 	public static final String HEADSET_PLUG_INTENT = "android.intent.action.HEADSET_PLUG";
+	public static final String ACTION_POWER_CONNECTED = "android.intent.action.ACTION_POWER_CONNECTED";
+	
 	public void onReceive(Context context, Intent intent ) {
-		
 		Log.d(TAG, "Receive intent= " + intent );
-		if( intent.getAction().equals(HEADSET_PLUG_INTENT))
-		{
-			Intent serviceIntent = new Intent(context,ToggleHeadsetAppWidgetProvider.ToggleHeadsetService.class);
+		Intent serviceIntent = new Intent(context,ToggleHeadsetAppWidgetProvider.ToggleHeadsetService.class);
+		if( intent.getAction() != null ) {
 			serviceIntent.setAction(intent.getAction());
-			serviceIntent.putExtras(intent.getExtras());
-			context.startService(serviceIntent);
 		}
+		
+		if( intent.getExtras() != null ) {
+			serviceIntent.putExtras(intent.getExtras());
+		}
+		context.startService(serviceIntent);
 	}
 }
