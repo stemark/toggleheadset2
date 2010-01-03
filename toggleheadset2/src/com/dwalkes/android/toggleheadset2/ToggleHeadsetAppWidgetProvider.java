@@ -56,11 +56,17 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 			int[] appWidgetIds) {
 	
 		Log.d(TAG,"onUpdate");
-		// do all updates within a service
+		// do all updates within a service (we can keep alive to register headset intents)
         context.startService(new Intent(context, ToggleHeadsetService.class));
 
 	}
 
+	/**
+	 * The ToggleHeadsetService class
+	 * A service to run in the background and catch receive headset toggle intents, use these to 
+	 * change headset state
+	 * @author dan
+	 */
 	public static class ToggleHeadsetService extends Service {
 
 		private String TAG = "ToggleHeadsetService";
@@ -76,11 +82,20 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 
 		/**
 		 * Starts a service to monitor headset toggle or updates the current toggle state
+		 * If this is the first start of the service, registers a broadcast receiver to receive headset plug intent.
+		 * If intent for headset plug was received, check whether the state has changed to a value indicating
+		 * headset route.  If it has and the headset is not currently routed, route the headset.
+		 * If intent for power connected was received, do nothing - but hope this was enough to start the service
+		 * in time to catch HEADSET_PLUG intent.  See issue 3 (http://code.google.com/p/toggleheadset2/issues/detail?id=3) 
+		 * @param intent The intent to handle, or NULL to simply update the icon
+		 * @param startId Not used
 		 */
 		@Override 
 		public void onStart(Intent intent, int startId){
 			Log.d(TAG,"onStart");
-			Log.d(TAG, "Received " + intent.getAction() );
+			if( intent.getAction() != null ) {
+				Log.d(TAG, "Received " + intent.getAction() );
+			}
 			
 			if(headsetReceiver == null )
 			{
@@ -88,8 +103,11 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 				 * unregister the broadcast receiver in the service
 				 */
 				headsetReceiver = new ToggleHeadsetBroadcastReceiver();
-				IntentFilter filter = new IntentFilter(ToggleHeadsetBroadcastReceiver.HEADSET_PLUG_INTENT);
-				registerReceiver(headsetReceiver, filter);
+				IntentFilter plugIntentFilter = new IntentFilter(ToggleHeadsetBroadcastReceiver.HEADSET_PLUG_INTENT);
+				registerReceiver(headsetReceiver, plugIntentFilter); 
+				
+				IntentFilter powerConnectedFilter = new IntentFilter(ToggleHeadsetBroadcastReceiver.ACTION_POWER_CONNECTED);
+				registerReceiver(headsetReceiver, powerConnectedFilter);
 			}
 			if( intent != null && intent.getAction() != null ) 
 			{
@@ -100,19 +118,32 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 				}
 				else if( intent.getAction().equals(ToggleHeadsetBroadcastReceiver.HEADSET_PLUG_INTENT))
 				{
+					/**
+					 *  Found by log and source code examine - state 2 is the state on the multi-function adapter where the
+					 *  3.5mm audio jack is plugged in 
+					 */
 					if( intent.getExtras().getInt("state") == 2 )
 					{
 						if( !isRoutingHeadset() )
 						{
-							// only change the headset toggle if not currently routing headset
+							/**
+							 * Only change the headset toggle if not currently routing headset.
+							 * If currently routing headset and the headset was unplugged the OS takes care of this for us.
+							 */
 							toggleHeadset();
 						}
 					}
 				}
+				else if( intent.getAction().equals(ToggleHeadsetBroadcastReceiver.ACTION_POWER_CONNECTED)) 
+				{
+					/**
+					 * Do nothing - but this intent should wake the service up and allow us to catch HEADSET_PLUG
+					 */
+					Log.d(TAG,"Caught POWER_CONNECTED_INTENT");
+				}
 			}
 			// always update the icon
 			updateIcon();
-
 
 
 		}
