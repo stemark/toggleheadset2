@@ -34,6 +34,7 @@ public class ToggleHeadsetBroadcastReceiver extends BroadcastReceiver{
 	private static final String TAG = ToggleHeadsetBroadcastReceiver.class.getName();
 	public static final String HEADSET_PLUG_INTENT = "android.intent.action.HEADSET_PLUG";
 	public static final String ACTION_POWER_CONNECTED = "android.intent.action.ACTION_POWER_CONNECTED";
+	public static final String ACTION_POWER_DISCONNECTED = "android.intent.action.ACTION_POWER_DISCONNECTED";
 	
 	public void onReceive(Context context, Intent intent ) {
 		Log.d(TAG, "Receive intent= " + intent );

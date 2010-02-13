@@ -108,6 +108,10 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 				
 				IntentFilter powerConnectedFilter = new IntentFilter(ToggleHeadsetBroadcastReceiver.ACTION_POWER_CONNECTED);
 				registerReceiver(headsetReceiver, powerConnectedFilter);
+				
+				IntentFilter powerDisconnectedFilter = new IntentFilter(ToggleHeadsetBroadcastReceiver.ACTION_POWER_DISCONNECTED);
+				registerReceiver(headsetReceiver, powerDisconnectedFilter);
+				
 			}
 			if( intent != null && intent.getAction() != null ) 
 			{
@@ -140,6 +144,13 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 					 * Do nothing - but this intent should wake the service up and allow us to catch HEADSET_PLUG
 					 */
 					Log.d(TAG,"Caught POWER_CONNECTED_INTENT");
+				}
+				else if( intent.getAction().equals(ToggleHeadsetBroadcastReceiver.ACTION_POWER_DISCONNECTED)) 
+				{
+					/**
+					 * Do nothing - but this intent should wake the service up and allow us to refresh the icon if we were previously asleep
+					 */
+					Log.d(TAG,"Caught POWER_DISCONNECTED_INTENT");
 				}
 			}
 			// always update the icon
