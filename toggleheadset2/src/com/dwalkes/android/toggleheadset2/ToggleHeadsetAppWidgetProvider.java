@@ -71,7 +71,7 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 
 		private String TAG = "ToggleHeadsetService";
 		public static final String INTENT_UPDATE_ICON = "com.dwalkes.android.toggleheadset2.INTENT_UPDATE_ICON";
-		public static final String INTENT_TOGGLE_HEADSET = "com.dwalkes.android.toggleheadset2.INTENT_TOGGLE_HEADSET";
+		public static final String INTENT_USER_TOGGLE_REQUEST = "com.dwalkes.android.toggleheadset2.INTENT_TOGGLE_HEADSET";
 
 		public IBinder onBind(Intent arg0) {
 			// TODO Auto-generated method stub
@@ -115,18 +115,21 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 			}
 			if( intent != null && intent.getAction() != null ) 
 			{
-				if( intent.getAction().equals(INTENT_TOGGLE_HEADSET)  )
+				if( intent.getAction().equals(INTENT_USER_TOGGLE_REQUEST)  )
 				{
 					// always toggle the headset if this was the received intent
 					toggleHeadset();
 				}
 				else if( intent.getAction().equals(ToggleHeadsetBroadcastReceiver.HEADSET_PLUG_INTENT))
 				{
+					int state = intent.getExtras().getInt("state");
+					
+					Log.d(TAG,"Headset plug intent recieved, state " + Integer.toString(state));
 					/**
 					 *  Found by log and source code examine - state 2 is the state on the multi-function adapter where the
 					 *  3.5mm audio jack is plugged in 
 					 */
-					if( intent.getExtras().getInt("state") == 2 )
+					if( state == 2 )
 					{
 						if( !isRoutingHeadset() )
 						{
@@ -224,7 +227,7 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 	        
 		    // Create an Intent to launch toggle headset
 		    Intent toggleIntent = new Intent(this, ToggleHeadsetService.class);
-		    toggleIntent.setAction(ToggleHeadsetService.INTENT_TOGGLE_HEADSET);
+		    toggleIntent.setAction(ToggleHeadsetService.INTENT_USER_TOGGLE_REQUEST);
 		    PendingIntent pendingIntent = PendingIntent.getService(this, 0, toggleIntent, 0);
 
 		    // Get the layout for the App Widget and attach an on-click listener to the icon
