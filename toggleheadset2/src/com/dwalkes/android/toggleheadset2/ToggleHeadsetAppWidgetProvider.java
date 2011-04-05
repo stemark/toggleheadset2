@@ -17,6 +17,8 @@
 package com.dwalkes.android.toggleheadset2;
 
 
+import java.lang.reflect.Method;
+
 import android.app.PendingIntent;
 import android.app.Service;
 import android.appwidget.AppWidgetManager;
@@ -26,6 +28,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.AudioManager;
+import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.RemoteViews;
@@ -73,6 +76,15 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 		public static final String INTENT_UPDATE_ICON = "com.dwalkes.android.toggleheadset2.INTENT_UPDATE_ICON";
 		public static final String INTENT_USER_TOGGLE_REQUEST = "com.dwalkes.android.toggleheadset2.INTENT_TOGGLE_HEADSET";
 
+        /*
+         *  Constants determined from AudioSystem source
+         */
+        private static final int DEVICE_IN_WIRED_HEADSET    = 0x400000;
+        private static final int DEVICE_OUT_EARPIECE        = 0x1;
+        private static final int DEVICE_OUT_WIRED_HEADSET   = 0x4;
+        private static final int DEVICE_STATE_UNAVAILABLE   = 0;
+        private static final int DEVICE_STATE_AVAILABLE     = 1;
+        
 		public IBinder onBind(Intent arg0) {
 			// TODO Auto-generated method stub
 			return null;
@@ -180,17 +192,28 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 			Log.d(TAG,"toggleHeadset"); 
 	    	if( isRoutingHeadset() )
 	    	{
-	    		Log.d(TAG,"route to speaker"); 
-	    		/* see AudioService.setRouting
-	    		* Use MODE_INVALID to force headset routing change */
-	            manager.setRouting(AudioManager.MODE_INVALID, 0, AudioManager.ROUTE_HEADSET );
+	    		Log.d(TAG,"route to earpiece"); 
+	    		if( Build.VERSION.SDK_INT == Build.VERSION_CODES.DONUT ) {
+		    		/* see AudioService.setRouting
+		    		* Use MODE_INVALID to force headset routing change */
+		            manager.setRouting(AudioManager.MODE_INVALID, 0, AudioManager.ROUTE_HEADSET );
+	    		} else {
+	                setDeviceConnectionState(DEVICE_IN_WIRED_HEADSET, DEVICE_STATE_UNAVAILABLE, "");
+	                setDeviceConnectionState(DEVICE_OUT_WIRED_HEADSET, DEVICE_STATE_UNAVAILABLE, "");
+	                setDeviceConnectionState(DEVICE_OUT_EARPIECE, DEVICE_STATE_AVAILABLE, "");
+	    		}
 	    	}
 	    	else 
 	    	{
 	    		Log.d(TAG,"route to headset"); 
-	    		/* see AudioService.setRouting
-	    		* Use MODE_INVALID to force headset routing change */
-	            manager.setRouting(AudioManager.MODE_INVALID, AudioManager.ROUTE_HEADSET, AudioManager.ROUTE_HEADSET );
+	    		if( Build.VERSION.SDK_INT == Build.VERSION_CODES.DONUT ) {
+		    		/* see AudioService.setRouting
+		    		* Use MODE_INVALID to force headset routing change */
+		            manager.setRouting(AudioManager.MODE_INVALID, AudioManager.ROUTE_HEADSET, AudioManager.ROUTE_HEADSET );
+	    		} else {
+	                setDeviceConnectionState(DEVICE_IN_WIRED_HEADSET, DEVICE_STATE_AVAILABLE, "");
+	                setDeviceConnectionState(DEVICE_OUT_WIRED_HEADSET, DEVICE_STATE_AVAILABLE, "");
+	    		}
 	    	}
 		}
 		
@@ -199,11 +222,39 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 		 * @return true if routing to headset, false if routing somewhere else
 		 */
 		public boolean isRoutingHeadset() {
-		    AudioManager manager = (AudioManager)this.getSystemService(Context.AUDIO_SERVICE);
+			boolean isRoutingHeadset = false;
 			
-			int routing = manager.getRouting(AudioManager.MODE_NORMAL);
-	    	Log.d(TAG,"getRouting returns " + routing); 
-	    	return (routing & AudioManager.ROUTE_HEADSET) != 0; 
+			if( Build.VERSION.SDK_INT == Build.VERSION_CODES.DONUT ) {
+				/*
+				 * The code that works and is tested for Donut...
+				 */
+				AudioManager manager = (AudioManager)this.getSystemService(Context.AUDIO_SERVICE);
+				
+				int routing = manager.getRouting(AudioManager.MODE_NORMAL);
+		    	Log.d(TAG,"getRouting returns " + routing); 
+		    	isRoutingHeadset = (routing & AudioManager.ROUTE_HEADSET) != 0;
+			} else {
+				/*
+				 * Code for Android 2.1, 2.2, 2.3, maybe others... Thanks Adam King!
+				 */
+	            try {
+	            	/**
+	            	 * Use reflection to get headset routing
+	            	 */
+	                Class<?> audioSystem = Class.forName("android.media.AudioSystem");
+	                Method getDeviceConnectionState = audioSystem.getMethod(
+	                        "getDeviceConnectionState", int.class, String.class);
+
+	                int retVal = (Integer)getDeviceConnectionState.invoke(audioSystem, DEVICE_IN_WIRED_HEADSET, "");
+	                
+	                isRoutingHeadset = (retVal == 1);
+			    	Log.d(TAG,"getDeviceConnectionState " + retVal); 
+
+	            } catch (Exception e) {
+	                Log.e(TAG, "Could not determine status in isRoutingHeadset(): " + e);
+	            }
+			}
+	    	return isRoutingHeadset; 
 		}
 		
 		/**
@@ -238,6 +289,26 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 	        AppWidgetManager manager = AppWidgetManager.getInstance(this);
 	        manager.updateAppWidget(thisWidget, view);
 		}
+		
+		
+		/**
+		 * set device connection state through reflection for Android 2.1, 2.2, 2.3, maybe others.
+		 * Thanks Adam King!
+		 * @param device
+		 * @param state
+		 * @param address
+		 */
+        private void setDeviceConnectionState(final int device, final int state, final String address) {
+            try {
+                Class<?> audioSystem = Class.forName("android.media.AudioSystem");
+                Method setDeviceConnectionState = audioSystem.getMethod(
+                        "setDeviceConnectionState", int.class, int.class, String.class);
+
+                setDeviceConnectionState.invoke(audioSystem, device, state, address);
+            } catch (Exception e) {
+                Log.e(TAG, "setDeviceConnectionState failed: " + e);
+            }
+        }
 		
 	}
 
