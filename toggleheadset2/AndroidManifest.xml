@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       package="com.dwalkes.android.toggleheadset2"
-      android:versionCode="5"
-      android:versionName="1.6">
+      android:versionCode="6"
+      android:versionName="2.0">
     <application android:icon="@drawable/icon" 
     	android:label="@string/app_name" >
 		<receiver android:name=".ToggleHeadsetAppWidgetProvider" android:label="@string/widget_name" >
@@ -24,7 +24,8 @@
 		
 		<service android:name=".ToggleHeadsetAppWidgetProvider$ToggleHeadsetService" />
     </application>
-    <uses-sdk android:minSdkVersion="4" android:maxSdkVersion="4" />
+   	<!-- Only allow up to Gingerbread as this code uses reflection and Honeycomb has not yet been tested -->
+    <uses-sdk android:minSdkVersion="4" android:maxSdkVersion="10" />
 	<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"></uses-permission>
 
 </manifest>
