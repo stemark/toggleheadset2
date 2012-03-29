@@ -4,4 +4,7 @@
     <string name="app_name">Toggle Headset 2</string>
 <string name="widget_name">Toggle Headset 2</string>
 <string name="service_name">ToggleHeadsetService</string>
+<string name="config_name">com.dwalkes.android.toggleheadset2.ToggleHeadsetConfig</string>
+<string name="force_to_speaker">Force audio to speaker when device starts (may not work on all devices)</string>
+<string name="ok">OK</string>
 </resources>

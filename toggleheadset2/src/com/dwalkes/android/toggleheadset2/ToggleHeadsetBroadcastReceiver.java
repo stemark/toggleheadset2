@@ -35,6 +35,7 @@ public class ToggleHeadsetBroadcastReceiver extends BroadcastReceiver{
 	public static final String HEADSET_PLUG_INTENT = "android.intent.action.HEADSET_PLUG";
 	public static final String ACTION_POWER_CONNECTED = "android.intent.action.ACTION_POWER_CONNECTED";
 	public static final String ACTION_POWER_DISCONNECTED = "android.intent.action.ACTION_POWER_DISCONNECTED";
+	public static final String ACTION_BOOT_COMPLETED = "android.intent.action.BOOT_COMPLETED";
 	
 	public void onReceive(Context context, Intent intent ) {
 		Log.d(TAG, "Receive intent= " + intent );
@@ -48,4 +49,9 @@ public class ToggleHeadsetBroadcastReceiver extends BroadcastReceiver{
 		}
 		context.startService(serviceIntent);
 	}
+	public static class ToggleHeadsetHeadsetPlugReceiver extends ToggleHeadsetBroadcastReceiver {
+		
+	}
 }
+
+

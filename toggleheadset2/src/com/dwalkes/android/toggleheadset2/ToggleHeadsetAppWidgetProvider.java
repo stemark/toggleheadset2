@@ -27,6 +27,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.media.AudioManager;
 import android.os.Build;
 import android.os.IBinder;
@@ -64,6 +65,12 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 
 	}
 
+	public void onReceive(Context context, Intent intent) 
+	{
+		Log.d(TAG,"Receive intent " + intent);
+		super.onReceive(context, intent);
+	}
+	
 	/**
 	 * The ToggleHeadsetService class
 	 * A service to run in the background and catch receive headset toggle intents, use these to 
@@ -75,6 +82,8 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 		private String TAG = "ToggleHeadsetService";
 		public static final String INTENT_UPDATE_ICON = "com.dwalkes.android.toggleheadset2.INTENT_UPDATE_ICON";
 		public static final String INTENT_USER_TOGGLE_REQUEST = "com.dwalkes.android.toggleheadset2.INTENT_TOGGLE_HEADSET";
+		public static final String PREF_FILE = "toggleheadset2_prefs";
+		private boolean mForceEarpieceOnBoot = false;
 
         /*
          *  Constants determined from AudioSystem source
@@ -92,6 +101,13 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 		
 		ToggleHeadsetBroadcastReceiver headsetReceiver = null;
 
+		public void onCreate() {
+			super.onCreate();
+			SharedPreferences mPrefs = getSharedPreferences(PREF_FILE, 0);
+			mForceEarpieceOnBoot = mPrefs.getBoolean("force_earpiece", false);
+			Log.i(TAG,"Force earpiece on boot = " + mForceEarpieceOnBoot);
+		}
+		
 		/**
 		 * Starts a service to monitor headset toggle or updates the current toggle state
 		 * If this is the first start of the service, registers a broadcast receiver to receive headset plug intent.
@@ -104,7 +120,7 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 		 */
 		@Override 
 		public void onStart(Intent intent, int startId){
-			Log.d(TAG,"onStart");
+			Log.d(TAG,"onStart " + intent);
 			if( intent.getAction() != null ) {
 				Log.d(TAG, "Received " + intent.getAction() );
 			}
@@ -112,19 +128,14 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 			if(headsetReceiver == null )
 			{
 				/** Since HEADSET_PLUG uses FLAG_RECIEVER_REGISTERED_ONLY we need to register and
-				 * unregister the broadcast receiver in the service
+				 * unregister the broadcast receiver in the service.  
+				 * Note - don't include power modes since this would cause the receiver to be fired twice
 				 */
-				headsetReceiver = new ToggleHeadsetBroadcastReceiver();
+				headsetReceiver = new ToggleHeadsetBroadcastReceiver.ToggleHeadsetHeadsetPlugReceiver();
 				IntentFilter plugIntentFilter = new IntentFilter(ToggleHeadsetBroadcastReceiver.HEADSET_PLUG_INTENT);
 				registerReceiver(headsetReceiver, plugIntentFilter); 
-				
-				IntentFilter powerConnectedFilter = new IntentFilter(ToggleHeadsetBroadcastReceiver.ACTION_POWER_CONNECTED);
-				registerReceiver(headsetReceiver, powerConnectedFilter);
-				
-				IntentFilter powerDisconnectedFilter = new IntentFilter(ToggleHeadsetBroadcastReceiver.ACTION_POWER_DISCONNECTED);
-				registerReceiver(headsetReceiver, powerDisconnectedFilter);
-				
 			}
+			
 			if( intent != null && intent.getAction() != null ) 
 			{
 				if( intent.getAction().equals(INTENT_USER_TOGGLE_REQUEST)  )
@@ -152,26 +163,34 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 							toggleHeadset();
 						}
 					}
+				} 
+				else if (intent.getAction().equals(ToggleHeadsetBroadcastReceiver.ACTION_BOOT_COMPLETED))
+				{
+					if(mForceEarpieceOnBoot) {
+						AudioManager manager = (AudioManager)this.getSystemService(Context.AUDIO_SERVICE);
+						routeToEarpiece(manager);
+						Log.i(TAG,"Force routing on boot");
+					}
 				}
-				else if( intent.getAction().equals(ToggleHeadsetBroadcastReceiver.ACTION_POWER_CONNECTED)) 
+				else
 				{
 					/**
-					 * Do nothing - but this intent should wake the service up and allow us to catch HEADSET_PLUG
+					 * Do nothing - but this intent should wake the service up and allow us to catch HEADSET_PLUG or refresh the icon
+					 * with current state
 					 */
-					Log.d(TAG,"Caught POWER_CONNECTED_INTENT");
-				}
-				else if( intent.getAction().equals(ToggleHeadsetBroadcastReceiver.ACTION_POWER_DISCONNECTED)) 
-				{
-					/**
-					 * Do nothing - but this intent should wake the service up and allow us to refresh the icon if we were previously asleep
-					 */
-					Log.d(TAG,"Caught POWER_DISCONNECTED_INTENT");
+					Log.d(TAG,"Caught " + intent.getAction());
 				}
 			}
 			// always update the icon
 			updateIcon();
 
-
+			/*
+			 *  It seems I should be able to stop here, however when I do I can get into states where the headset plug intent
+			 *  fires continuously.  I can't understand why.  I was thinking it might be related to registering the broadcast
+			 *  receiver for HEADSET_PLUG above and defining HEADSET_PLUG as the intent for the broadcast reciever but when I take
+			 *  HEADSET_PLUG out of the manifest I still se the same issue. 
+			 */
+			//stopSelf(startId);
 		}
 		
 		/**
@@ -180,7 +199,12 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 		 */
 		public void onDestroy() {
 			Log.i(TAG,"onDestroy");
-			unregisterReceiver(headsetReceiver);
+			/*
+			 * Fix crash error in the market
+			 */
+			if( headsetReceiver != null ) {
+				unregisterReceiver(headsetReceiver);
+			}
 		}
 		
 		/**
@@ -192,16 +216,7 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 			Log.d(TAG,"toggleHeadset"); 
 	    	if( isRoutingHeadset() )
 	    	{
-	    		Log.d(TAG,"route to earpiece"); 
-	    		if( Build.VERSION.SDK_INT == Build.VERSION_CODES.DONUT ) {
-		    		/* see AudioService.setRouting
-		    		* Use MODE_INVALID to force headset routing change */
-		            manager.setRouting(AudioManager.MODE_INVALID, 0, AudioManager.ROUTE_HEADSET );
-	    		} else {
-	                setDeviceConnectionState(DEVICE_IN_WIRED_HEADSET, DEVICE_STATE_UNAVAILABLE, "");
-	                setDeviceConnectionState(DEVICE_OUT_WIRED_HEADSET, DEVICE_STATE_UNAVAILABLE, "");
-	                setDeviceConnectionState(DEVICE_OUT_EARPIECE, DEVICE_STATE_AVAILABLE, "");
-	    		}
+	    		routeToEarpiece(manager);
 	    	}
 	    	else 
 	    	{
@@ -215,6 +230,23 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 	                setDeviceConnectionState(DEVICE_OUT_WIRED_HEADSET, DEVICE_STATE_AVAILABLE, "");
 	    		}
 	    	}
+		}
+
+		/**
+		 * Routes audio to earpiece.
+		 * @param manager AudioManager instance.
+		 */
+		private void routeToEarpiece(AudioManager manager) {
+			Log.d(TAG,"route to earpiece"); 
+			if( Build.VERSION.SDK_INT == Build.VERSION_CODES.DONUT ) {
+				/* see AudioService.setRouting
+				* Use MODE_INVALID to force headset routing change */
+			    manager.setRouting(AudioManager.MODE_INVALID, 0, AudioManager.ROUTE_HEADSET );
+			} else {
+			    setDeviceConnectionState(DEVICE_IN_WIRED_HEADSET, DEVICE_STATE_UNAVAILABLE, "");
+			    setDeviceConnectionState(DEVICE_OUT_WIRED_HEADSET, DEVICE_STATE_UNAVAILABLE, "");
+			    setDeviceConnectionState(DEVICE_OUT_EARPIECE, DEVICE_STATE_AVAILABLE, "");
+			}
 		}
 		
 		/**
@@ -292,7 +324,7 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 		
 		
 		/**
-		 * set device connection state through reflection for Android 2.1, 2.2, 2.3, maybe others.
+		 * set device connection state through reflection for Android 2.1, 2.2, 2.3 - 4.0 - later?
 		 * Thanks Adam King!
 		 * @param device
 		 * @param state
