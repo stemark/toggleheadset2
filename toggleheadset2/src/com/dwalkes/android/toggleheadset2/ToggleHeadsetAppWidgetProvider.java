@@ -28,9 +28,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.media.AudioManager;
 import android.os.Build;
 import android.os.IBinder;
+import android.telephony.PhoneStateListener;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.widget.RemoteViews;
 
@@ -77,13 +80,14 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 	 * change headset state
 	 * @author dan
 	 */
-	public static class ToggleHeadsetService extends Service {
+	public static class ToggleHeadsetService extends Service implements OnSharedPreferenceChangeListener {
 
 		private String TAG = "ToggleHeadsetService";
 		public static final String INTENT_UPDATE_ICON = "com.dwalkes.android.toggleheadset2.INTENT_UPDATE_ICON";
 		public static final String INTENT_USER_TOGGLE_REQUEST = "com.dwalkes.android.toggleheadset2.INTENT_TOGGLE_HEADSET";
 		public static final String PREF_FILE = "toggleheadset2_prefs";
 		private boolean mForceEarpieceOnBoot = false;
+		private boolean mRouteSpeakerOnCallAnswer = false;
 
         /*
          *  Constants determined from AudioSystem source
@@ -101,11 +105,57 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 		
 		ToggleHeadsetBroadcastReceiver headsetReceiver = null;
 
+		class ToggleHeadsetPhoneStateListener extends PhoneStateListener 
+		{
+			@Override
+			public void onCallStateChanged(int state, String incomingNumber)
+			{
+				Log.i(TAG,"Call state changed");
+				if (state == TelephonyManager.CALL_STATE_OFFHOOK) {
+					Log.i(TAG,"Call answered");
+					if( isRoutingHeadset() )
+					{
+						Log.i(TAG,"Toggle to earpiece speaker to take call");
+						toggleHeadset();
+						updateIcon();
+					}
+				}
+			}
+		}
+		PhoneStateListener mPhoneStateListener = null;
+
+		synchronized void startPhoneStateListener() 
+		{
+			if( mPhoneStateListener == null) {
+				PhoneStateListener listener  = new ToggleHeadsetPhoneStateListener();
+				TelephonyManager manager = (TelephonyManager)getApplicationContext().getSystemService(Context.TELEPHONY_SERVICE);
+				manager.listen(listener,PhoneStateListener.LISTEN_CALL_STATE);
+				mPhoneStateListener = listener;
+			}
+		}
+		
+		synchronized void stopPhoneStateListener()
+		{
+			if( mPhoneStateListener != null ) {
+				TelephonyManager manager = (TelephonyManager)getApplicationContext().getSystemService(Context.TELEPHONY_SERVICE);
+				manager.listen(mPhoneStateListener,PhoneStateListener.LISTEN_NONE);
+				mPhoneStateListener = null;
+			}
+		}
+
+		
 		public void onCreate() {
 			super.onCreate();
 			SharedPreferences mPrefs = getSharedPreferences(PREF_FILE, 0);
-			mForceEarpieceOnBoot = mPrefs.getBoolean("force_earpiece", false);
+			mPrefs.registerOnSharedPreferenceChangeListener(this);
+			mForceEarpieceOnBoot = mPrefs.getBoolean(ToggleHeadsetConfig.PREF_KEY_FORCE_SPEAKER_ON_BOOT, false);
+			mRouteSpeakerOnCallAnswer = mPrefs.getBoolean(ToggleHeadsetConfig.PREF_KEY_ROUTE_SPEAKER_ON_CALL_ANSWER, false);
 			Log.i(TAG,"Force earpiece on boot = " + mForceEarpieceOnBoot);
+			Log.i(TAG,"Route speaker on call answer = " + mRouteSpeakerOnCallAnswer);
+			if( mRouteSpeakerOnCallAnswer )
+			{
+				startPhoneStateListener();
+			}
 		}
 		
 		/**
@@ -187,8 +237,8 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 			/*
 			 *  It seems I should be able to stop here, however when I do I can get into states where the headset plug intent
 			 *  fires continuously.  I can't understand why.  I was thinking it might be related to registering the broadcast
-			 *  receiver for HEADSET_PLUG above and defining HEADSET_PLUG as the intent for the broadcast reciever but when I take
-			 *  HEADSET_PLUG out of the manifest I still se the same issue. 
+			 *  receiver for HEADSET_PLUG above and defining HEADSET_PLUG as the intent for the broadcast receiver but when I take
+			 *  HEADSET_PLUG out of the manifest I still see the same issue. 
 			 */
 			//stopSelf(startId);
 		}
@@ -205,6 +255,7 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 			if( headsetReceiver != null ) {
 				unregisterReceiver(headsetReceiver);
 			}
+			stopPhoneStateListener();
 		}
 		
 		/**
@@ -341,6 +392,24 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
                 Log.e(TAG, "setDeviceConnectionState failed: " + e);
             }
         }
+
+        /**
+         * The config activity might happen while the service is running.  Watch for changes to preferences and update boolean values
+         * accordingly
+         */
+		@Override
+		public void onSharedPreferenceChanged(
+				SharedPreferences sharedPreferences, String key) {
+			Log.i(TAG,"shared preference changed for " + key);
+			mForceEarpieceOnBoot = sharedPreferences.getBoolean(ToggleHeadsetConfig.PREF_KEY_FORCE_SPEAKER_ON_BOOT, false);
+			mRouteSpeakerOnCallAnswer = sharedPreferences.getBoolean(ToggleHeadsetConfig.PREF_KEY_ROUTE_SPEAKER_ON_CALL_ANSWER, false);
+			
+			if(mRouteSpeakerOnCallAnswer) {
+				startPhoneStateListener();
+			} else {
+				stopPhoneStateListener();
+			}
+		}
 		
 	}
 

@@ -31,8 +31,11 @@ import android.widget.CheckBox;
 public class ToggleHeadsetConfig extends Activity {
 	Button mConfigOkButton;
 	CheckBox mForceEarpieceCheck;
+	CheckBox mRouteSpeakerOnCallAnswerCheck;
 	int mAppWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID;
 	private static final String TAG = "ToggleHeadsetConfig";
+	public static final String PREF_KEY_ROUTE_SPEAKER_ON_CALL_ANSWER = "route_speaker_on_call_answer";
+	public static final String PREF_KEY_FORCE_SPEAKER_ON_BOOT = "force_earpiece";
 	
 	@Override
 	/**
@@ -46,10 +49,14 @@ public class ToggleHeadsetConfig extends Activity {
 	    setContentView(R.layout.toggle_config);
 	  
 	    mForceEarpieceCheck = (CheckBox)findViewById(R.id.checkBox1);
+	    mRouteSpeakerOnCallAnswerCheck = (CheckBox)findViewById(R.id.checkBoxRouteToSpeakerOnCallAnswer);
 	    mConfigOkButton = (Button)findViewById(R.id.button1);
 	    mConfigOkButton.setOnClickListener(configOkButtonOnClickListener);
 		SharedPreferences prefs = getSharedPreferences(ToggleHeadsetService.PREF_FILE, 0);
-	    mForceEarpieceCheck.setChecked(prefs.getBoolean("force_earpiece", false));
+	    mForceEarpieceCheck.setChecked(prefs.getBoolean(PREF_KEY_FORCE_SPEAKER_ON_BOOT, false));
+	    mRouteSpeakerOnCallAnswerCheck.setChecked(prefs.getBoolean(PREF_KEY_ROUTE_SPEAKER_ON_CALL_ANSWER, false));
+	    
+	    
 	  
 	    Intent intent = getIntent();
 	    Bundle extras = intent.getExtras();
@@ -75,7 +82,9 @@ public class ToggleHeadsetConfig extends Activity {
 	public void onClick(View arg0) {
 		 //save preference to a file, so that we can retrieve it later.
 		SharedPreferences.Editor prefEditor = getSharedPreferences(ToggleHeadsetService.PREF_FILE, 0).edit();
-		prefEditor.putBoolean("force_earpiece", mForceEarpieceCheck.isChecked());
+		prefEditor.putBoolean(PREF_KEY_FORCE_SPEAKER_ON_BOOT, mForceEarpieceCheck.isChecked());
+		prefEditor.putBoolean(PREF_KEY_ROUTE_SPEAKER_ON_CALL_ANSWER, mRouteSpeakerOnCallAnswerCheck.isChecked());
+		
 		if ( !prefEditor.commit() ) {
 			Log.w(TAG, "Failed to commit preference setting force_earpiece");
 		}

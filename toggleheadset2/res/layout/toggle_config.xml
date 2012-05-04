@@ -10,7 +10,11 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/force_to_speaker" />
-
+    <CheckBox
+        android:id="@+id/checkBoxRouteToSpeakerOnCallAnswer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/route_speaker_on_call_answer" />
     <Button
         android:id="@+id/button1"
         android:layout_width="110dp"
