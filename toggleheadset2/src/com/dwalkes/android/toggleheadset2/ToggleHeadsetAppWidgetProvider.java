@@ -171,7 +171,7 @@ public class ToggleHeadsetAppWidgetProvider extends AppWidgetProvider {
 		@Override 
 		public void onStart(Intent intent, int startId){
 			Log.d(TAG,"onStart " + intent);
-			if( intent.getAction() != null ) {
+			if( intent != null && intent.getAction() != null ) {
 				Log.d(TAG, "Received " + intent.getAction() );
 			}
 			
